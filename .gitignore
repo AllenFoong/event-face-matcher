@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# 资料：照片、缩图、资料库、暂存与日志，一律不进版控
+data/
+!data/.gitkeep
+
+# 模型档太大，用 scripts/download_models.py 取得
+models/**/*.onnx
+
+# 各阶段改动前的旧版，本机参考用
+app/_history/
+
+# Claude Code 本机设定
+.claude/

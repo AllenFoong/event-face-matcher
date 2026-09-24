@@ -1,0 +1,42 @@
+<!-- 全萤幕看照片（来宾页与管理页共用，行为在 /static/viewer.js） -->
+<dialog id="viewer" class="viewer" aria-label="Photo viewer">
+  <div class="viewer__stage">
+    <div class="viewer__frame">
+      <div class="viewer__zoom">
+        <img class="viewer__low" alt="" draggable="false" />
+        <img class="viewer__img" alt="" draggable="false" />
+      </div>
+    </div>
+  </div>
+  <div class="viewer__top">
+    <button type="button" class="viewer__btn" data-close aria-label="Close">
+      <svg class="ic"><use href="#i-close" /></svg>
+    </button>
+    <span class="viewer__count num" aria-live="polite"></span>
+    <span class="viewer__top-end"></span>
+  </div>
+  <button
+    type="button"
+    class="viewer__nav viewer__nav--prev"
+    data-prev
+    aria-label="Previous photo"
+  >
+    <svg class="ic"><use href="#i-chevron-left" /></svg>
+  </button>
+  <button
+    type="button"
+    class="viewer__nav viewer__nav--next"
+    data-next
+    aria-label="Next photo"
+  >
+    <svg class="ic"><use href="#i-chevron-right" /></svg>
+  </button>
+  <div class="viewer__bottom">
+    <div class="viewer__caption"></div>
+    <div class="viewer__actions">
+      <a class="btn btn--light" data-download href="#" download>
+        <svg class="ic"><use href="#i-download" /></svg><span>Download</span>
+      </a>
+    </div>
+  </div>
+</dialog>

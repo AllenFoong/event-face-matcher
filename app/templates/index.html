@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#F7F6F2" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="same-origin" />
+    <title>{{ title }} · Find your photos</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/base.css" />
+    <link rel="stylesheet" href="/static/guest.css" />
+  </head>
+  <body class="guest">
+    {% include '_icons.html' %}
+
+    <main
+      id="landing"
+      class="landing"
+      data-cover="{{ 'yes' if cover else 'no' }}"
+    >
+      {% if cover %}
+      <figure class="print" style="{{ cover_style }}">
+        <img
+          src="{{ cover.view_url }}"
+          width="{{ cover_w }}"
+          height="{{ cover_h }}"
+          alt="Cover photo: {{ title }}"
+          fetchpriority="high"
+        />
+      </figure>
+      {% endif %}
+
+      <div class="landing__side">
+        <header class="label">
+          <h1 class="label__title">{{ title }}</h1>
+          {% if event.photographer %}
+          <p class="label__by">Photographs by {{ event.photographer }}</p>
+          {% endif %} {% if meta %}
+          <p class="label__meta">
+            {% for line in meta %}<span>{{ line }}</span>{% endfor %}
+          </p>
+          {% endif %}
+        </header>
+
+        <section id="finder" class="finder" aria-labelledby="finderTitle">
+          {% if page.searchOpen %}
+          <div class="finder__panel" data-panel="start">
+            <h2 id="finderTitle" class="finder__title">
+              Find your photos in seconds
+            </h2>
+
+            <label class="consent" id="consentBox">
+              <input
+                type="checkbox"
+                id="consent"
+                class="checkbox"
+                aria-labelledby="consentMain"
+                aria-describedby="consentSub"
+              />
+              <span>
+                <span class="consent__main" id="consentMain"
+                  >Use my selfie to find my photos</span
+                >
+                <span class="consent__sub"
+                  ><span id="consentSub"
+                    >Only for this search. It isn't saved, and it isn't linked
+                    to your name.</span
+                  >
+                  <a href="#how" class="textlink" data-open-how
+                    >How it works</a
+                  ></span
+                >
+              </span>
+            </label>
+
+            <p class="finder__error" id="finderError" role="alert" hidden></p>
+
+            <div class="finder__actions">
+              <button
+                type="button"
+                class="btn btn--primary btn--lg btn--block"
+                id="takeSelfie"
+              >
+                <svg class="ic"><use href="#i-camera" /></svg
+                ><span>Take a selfie</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn--quiet btn--block"
+                id="choosePhoto"
+              >
+                <svg class="ic"><use href="#i-image" /></svg
+                ><span>Choose a photo instead</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="finder__panel" data-panel="camera" hidden>
+            <div class="cam">
+              <video id="camVideo" playsinline muted autoplay></video>
+            </div>
+            <div class="cam__controls">
+              <button type="button" class="btn btn--quiet" id="camCancel">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="shutter"
+                id="camShutter"
+                aria-label="Take the selfie"
+              ></button>
+              <span></span>
+            </div>
+            <p class="cam__hint">Look at the camera. Good light helps.</p>
+          </div>
+
+          <div class="finder__panel" data-panel="searching" hidden>
+            <div class="searching" role="status">
+              <img
+                id="searchingSelfie"
+                class="searching__selfie"
+                alt="Your selfie"
+              />
+              <div>
+                <p class="searching__title">
+                  Looking through {{ photo_count_text }} photos…
+                </p>
+                <div class="bar bar--indeterminate" aria-hidden="true">
+                  <span></span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn--quiet btn--sm"
+              id="cancelSearch"
+            >
+              Cancel
+            </button>
+          </div>
+          {% else %}
+          <div class="finder__panel">
+            <h2 id="finderTitle" class="finder__title">
+              Photos are on their way
+            </h2>
+            <p class="finder__lede">
+              The photographer is still getting everything ready. Keep this page
+              and check back a little later.
+            </p>
+          </div>
+          {% endif %}
+        </section>
+
+        <footer class="landing__foot">
+          {% if event.contact %}
+          <p>
+            Questions, or want a photo taken down? Contact {{ event.photographer
+            or 'the photographer' }} at {{ event.contact }}.
+          </p>
+          {% else %}
+          <p>
+            Questions, or want a photo taken down? Ask the event photographer.
+          </p>
+          {% endif %}
+        </footer>
+      </div>
+    </main>
+
+    <section id="results" class="results" aria-labelledby="resultsTitle" hidden>
+      <header class="topbar" id="topbar">
+        <button type="button" class="topbar__back" id="backHome">
+          <svg class="ic"><use href="#i-arrow-left" /></svg
+          ><span>{{ title }}</span>
+        </button>
+        <button type="button" class="btn btn--secondary btn--sm" id="newSearch">
+          <svg class="ic"><use href="#i-camera" /></svg><span>New selfie</span>
+        </button>
+      </header>
+
+      <div class="wrap results__head">
+        <img id="resultsSelfie" class="selfie-chip" alt="Your selfie" />
+        <h2 id="resultsTitle" class="results__title" tabindex="-1"></h2>
+        <p id="resultsLede" class="results__lede"></p>
+        <form
+          id="zipForm"
+          class="results__actions"
+          method="post"
+          action="/api/download"
+        >
+          <button type="submit" class="btn btn--primary" id="downloadAll">
+            <svg class="ic"><use href="#i-download" /></svg
+            ><span id="downloadAllText"></span>
+          </button>
+        </form>
+        <div id="emptyBox" hidden>
+          <ul class="empty__tips">
+            <li>
+              The photographer may still be adding photos. Try again later.
+            </li>
+            <li>Face the camera, in good light.</li>
+            <li>Take off sunglasses or a hat if you can.</li>
+          </ul>
+          <button type="button" class="btn btn--primary" id="emptyRetry">
+            <svg class="ic"><use href="#i-camera" /></svg
+            ><span>Try another selfie</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid-wrap">
+        <div id="grid" class="masonry" aria-label="Your photos"></div>
+      </div>
+
+      <aside class="wrap results__foot" id="resultsFoot">
+        <div class="results__foot-inner">
+          <p>
+            <b>Missing a photo?</b> Photos keep being added during the event, so
+            search again later. A selfie in good light, facing the camera, finds
+            the most.
+          </p>
+          <button type="button" class="btn btn--secondary" id="footRetry">
+            <svg class="ic"><use href="#i-camera" /></svg
+            ><span>Search again</span>
+          </button>
+        </div>
+      </aside>
+    </section>
+
+    <dialog id="how" class="sheet" aria-labelledby="howTitle">
+      <div class="sheet__head">
+        <h2 id="howTitle">How photo search works</h2>
+        <button type="button" class="iconbtn" data-close aria-label="Close">
+          <svg class="ic"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <ol class="steps">
+        <li>
+          <span><b>You take a selfie.</b></span>
+        </li>
+        <li>
+          <span
+            ><b>It's compared with the faces in this event's photos.</b>Only
+            this event's photos. Nothing else is searched.</span
+          >
+        </li>
+        <li>
+          <span><b>You see the photos you're in.</b></span>
+        </li>
+        <li>
+          <span
+            ><b>Your selfie is thrown away.</b>Nothing about it is kept
+            afterwards.</span
+          >
+        </li>
+      </ol>
+      <h3>What it doesn't do</h3>
+      <ul class="plain">
+        <li>
+          It doesn't know who you are. There are no names or profiles here, only
+          photos.
+        </li>
+        <li>Your selfie isn't stored, shared, or used for anything else.</li>
+      </ul>
+      <p class="note">
+        Matching isn't perfect. You might miss a photo where your face is small,
+        turned away or covered, and once in a while you might see one that isn't
+        you.
+      </p>
+      <button type="button" class="btn btn--primary btn--block" data-close>
+        Got it
+      </button>
+    </dialog>
+
+    {% include '_viewer.html' %}
+
+    <input
+      type="file"
+      id="fileCamera"
+      class="sr-only"
+      accept="image/*"
+      capture="user"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <input
+      type="file"
+      id="fileLibrary"
+      class="sr-only"
+      accept="image/*"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <noscript
+      ><p class="wrap">
+        This page needs JavaScript to search for your photos.
+      </p></noscript
+    >
+
+    <script>
+      window.EFM = {{ page | tojson }};
+    </script>
+    <script src="/static/viewer.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

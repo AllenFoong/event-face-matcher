@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="same-origin" />
+    <title>{{ app_name }}</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/base.css" />
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body class="admin">
+    {% include '_icons.html' %}
+
+    <!-- 登入：只要管理密钥（.env 的 ADMIN_API_KEY） -->
+    <div id="signin" class="signin" hidden>
+      <form class="signin__card" id="signinForm" novalidate>
+        <div class="brand">
+          <img class="brand__mark" src="/static/favicon.svg" alt="" /><span
+            >{{ app_name }}</span
+          >
+        </div>
+        <div>
+          <h1>Photographer sign-in</h1>
+          <p class="page-sub">
+            Enter the admin key. It's the <code>ADMIN_API_KEY</code> line in the
+            <code>.env</code> file, and the launcher prints it when it starts.
+          </p>
+        </div>
+        <div class="field">
+          <label for="keyInput">Admin key</label>
+          <input
+            id="keyInput"
+            class="input"
+            type="password"
+            autocomplete="current-password"
+          />
+        </div>
+        <label class="check">
+          <input type="checkbox" id="remember" />
+          <span>Keep me signed in on this computer</span>
+        </label>
+        <p class="form-error" id="signinError" role="alert" hidden></p>
+        <button
+          class="btn btn--primary btn--block"
+          type="submit"
+          id="signinBtn"
+        >
+          Sign in
+        </button>
+        <p class="signin__foot">
+          Guests don't need this page. They get in with the QR code.
+        </p>
+      </form>
+    </div>
+
+    <div id="app" class="shell" hidden>
+      <aside class="sidebar" id="sidebar" aria-label="Sections">
+        <div class="sidebar__brand">
+          <div class="brand">
+            <img class="brand__mark" src="/static/favicon.svg" alt="" /><span
+              >{{ app_name }}</span
+            >
+          </div>
+          <div class="sidebar__event" id="sideEvent"></div>
+        </div>
+        <nav class="nav">
+          <a href="#overview" data-nav="overview"
+            ><svg class="ic"><use href="#i-overview" /></svg
+            ><span>Overview</span></a
+          >
+          <a href="#upload" data-nav="upload"
+            ><svg class="ic"><use href="#i-upload" /></svg><span>Upload</span
+            ><span class="nav__meta" id="navUpload"></span
+          ></a>
+          <a href="#photos" data-nav="photos"
+            ><svg class="ic"><use href="#i-photos" /></svg><span>Photos</span
+            ><span class="nav__meta" id="navPhotos"></span
+          ></a>
+          <a href="#skipped" data-nav="skipped"
+            ><svg class="ic"><use href="#i-image-off" /></svg
+            ><span>Not searchable</span
+            ><span class="nav__meta" id="navSkipped"></span
+          ></a>
+          <a href="#access" data-nav="access"
+            ><svg class="ic"><use href="#i-qr" /></svg><span>Guest access</span
+            ><span class="nav__meta" id="navAccess"></span
+          ></a>
+          <a href="#settings" data-nav="settings"
+            ><svg class="ic"><use href="#i-settings" /></svg
+            ><span>Settings</span></a
+          >
+        </nav>
+        <div class="sidebar__foot">
+          <a class="netcard" id="netCard" href="#access"></a>
+          <button type="button" class="navbtn" id="signOut">
+            <svg class="ic"><use href="#i-logout" /></svg><span>Sign out</span>
+          </button>
+        </div>
+      </aside>
+      <div class="scrim" id="scrim" hidden></div>
+
+      <div class="content">
+        <header class="mobilebar">
+          <button
+            type="button"
+            class="iconbtn"
+            id="menuBtn"
+            aria-label="Open menu"
+            aria-controls="sidebar"
+            aria-expanded="false"
+          >
+            <svg class="ic"><use href="#i-menu" /></svg>
+          </button>
+          <span class="mobilebar__title" id="mobileTitle"></span>
+          <span class="dot" id="mobileDot"></span>
+        </header>
+
+        <main class="main" id="main" tabindex="-1">
+          <!-- 总览 -->
+          <section
+            class="view"
+            data-view="overview"
+            hidden
+            aria-labelledby="ovTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="ovTitle">Overview</h1>
+                <p class="page-sub" id="ovEvent"></p>
+              </div>
+              <a class="btn btn--primary" href="#upload"
+                ><svg class="ic"><use href="#i-upload" /></svg
+                ><span>Upload photos</span></a
+              >
+            </div>
+            <div class="setup" id="ovSetup" hidden></div>
+            <div class="panel">
+              <div class="panel__head">
+                <h2>Latest photos</h2>
+                <a class="panel__link" href="#photos"
+                  ><span>All photos</span
+                  ><svg class="ic"><use href="#i-arrow-right" /></svg
+                ></a>
+              </div>
+              <div id="ovStrip"></div>
+            </div>
+            <div class="ov-grid">
+              <article class="panel" id="ovLibrary"></article>
+              <article class="panel" id="ovGuests"></article>
+              <article class="panel" id="ovNetwork"></article>
+            </div>
+            <div class="panel">
+              <div class="panel__head">
+                <h2>Uploads</h2>
+                <a class="panel__link" href="#upload"
+                  ><span>Upload photos</span
+                  ><svg class="ic"><use href="#i-arrow-right" /></svg
+                ></a>
+              </div>
+              <div id="ovBatches"></div>
+            </div>
+          </section>
+
+          <!-- 上传 -->
+          <section
+            class="view"
+            data-view="upload"
+            hidden
+            aria-labelledby="upTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="upTitle">Upload photos</h1>
+                <p class="page-sub">
+                  Photos are checked for faces in the background. Each one
+                  becomes searchable for guests as soon as it's done, so you can
+                  keep adding photos during the event.
+                </p>
+              </div>
+            </div>
+            <div class="notice" id="upPublic" hidden>
+              <svg class="ic"><use href="#i-info" /></svg>
+              <p>
+                <b>You're uploading over the public link.</b> It works, but it's
+                slower than uploading on the same Wi-Fi as this computer. For
+                big batches, open this page at
+                <code id="upLocalUrl">http://127.0.0.1:8000/admin</code> on the
+                computer itself.
+              </p>
+            </div>
+            <div class="dropzone" id="dropzone">
+              <input
+                type="file"
+                id="filePick"
+                class="sr-only"
+                accept="image/*,.heic,.heif,.tif,.tiff"
+                multiple
+                tabindex="-1"
+              />
+              <div>
+                <div class="dropzone__icon">
+                  <svg class="ic"><use href="#i-upload" /></svg>
+                </div>
+                <p class="dropzone__title">Drag photos here</p>
+                <p class="dropzone__sub">
+                  or
+                  <button type="button" class="textlink" id="pickBtn">
+                    choose them from this computer
+                  </button>
+                </p>
+                <p class="dropzone__fine">
+                  JPG, PNG, HEIC, WebP or TIFF · up to 30 MB each · original
+                  files work best
+                </p>
+              </div>
+            </div>
+            <div class="panel selection" id="selection" hidden>
+              <div class="selection__row">
+                <div>
+                  <p class="selection__count" id="selCount"></p>
+                  <p class="muted" id="selSize"></p>
+                </div>
+                <div class="btnrow">
+                  <button type="button" class="btn btn--quiet" id="selClear">
+                    Clear
+                  </button>
+                  <button type="button" class="btn btn--primary" id="selUpload">
+                    <svg class="ic"><use href="#i-upload" /></svg
+                    ><span id="selUploadText"></span>
+                  </button>
+                </div>
+              </div>
+              <div class="peek" id="selPeek"></div>
+              <p class="skiplist" id="selSkipped" hidden></p>
+            </div>
+            <div class="panel batch" id="batchPanel" hidden></div>
+            <div class="panel" style="margin-top: 16px">
+              <div class="panel__head"><h2>Recent uploads</h2></div>
+              <div id="upBatches"></div>
+            </div>
+          </section>
+
+          <!-- 相簿 -->
+          <section
+            class="view"
+            data-view="photos"
+            hidden
+            aria-labelledby="phTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="phTitle">
+                  Photos<span class="count num" id="phCount"></span>
+                </h1>
+                <p class="page-sub">
+                  Everything guests can find with a selfie. Newest first.
+                </p>
+              </div>
+              <div class="head-tools">
+                <label class="search"
+                  ><svg class="ic"><use href="#i-search" /></svg
+                  ><input
+                    type="search"
+                    id="phSearch"
+                    class="input"
+                    placeholder="Search file names"
+                    aria-label="Search file names"
+                /></label>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  id="phSelect"
+                  aria-pressed="false"
+                >
+                  <svg class="ic"><use href="#i-select" /></svg
+                  ><span>Select</span>
+                </button>
+              </div>
+            </div>
+            <div class="jgrid" id="phGrid"></div>
+            <div class="loadmore" id="phMore"></div>
+            <div class="selbar" id="selbar" hidden>
+              <span id="selbarCount"></span>
+              <button
+                type="button"
+                class="btn btn--quiet btn--sm"
+                id="selbarClear"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                class="btn btn--danger btn--sm"
+                id="selbarDelete"
+              >
+                <svg class="ic"><use href="#i-trash" /></svg><span>Delete</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- 没进索引 -->
+          <section
+            class="view"
+            data-view="skipped"
+            hidden
+            aria-labelledby="skTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="skTitle">
+                  Not searchable<span class="count num" id="skCount"></span>
+                </h1>
+                <p class="page-sub">
+                  Guests can't find these photos with a selfie. Photos without
+                  people in them are expected here. For the rest, uploading the
+                  original file usually fixes it.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                id="skDeleteAll"
+                hidden
+              >
+                <svg class="ic"><use href="#i-trash" /></svg
+                ><span id="skDeleteAllText"></span>
+              </button>
+            </div>
+            <div class="chips" id="skChips" aria-label="Filter by reason"></div>
+            <div class="panel list" id="skList"></div>
+          </section>
+
+          <!-- 来宾入口 -->
+          <section
+            class="view"
+            data-view="access"
+            hidden
+            aria-labelledby="acTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="acTitle">Guest access</h1>
+                <p class="page-sub">
+                  How guests reach your photos, and whether they can search
+                  right now.
+                </p>
+              </div>
+            </div>
+            <div class="access-grid">
+              <div class="panel qrcard" id="qrCard"></div>
+              <div class="stack">
+                <div class="panel" id="acSearch"></div>
+                <div class="panel" id="acEntry"></div>
+                <div class="panel" id="acNetwork"></div>
+                <div class="panel" id="acActivity"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 设定 -->
+          <section
+            class="view"
+            data-view="settings"
+            hidden
+            aria-labelledby="stTitle"
+          >
+            <div class="page-head">
+              <div>
+                <h1 id="stTitle">Settings</h1>
+                <p class="page-sub">
+                  What guests see at the top of the gallery, and how matching is
+                  set up.
+                </p>
+              </div>
+            </div>
+            <form class="panel" id="eventForm" novalidate>
+              <div class="panel__head">
+                <h2>Event</h2>
+                <p>Shown to guests on the gallery's front page.</p>
+              </div>
+              <div class="form-grid">
+                <div class="field field--wide">
+                  <label for="evName">Event name</label>
+                  <input
+                    id="evName"
+                    class="input"
+                    maxlength="120"
+                    placeholder="e.g. Mei Ling & Jun Wei"
+                  />
+                  <p class="hint">The big title guests see first.</p>
+                </div>
+                <div class="field">
+                  <label for="evDate">Date</label>
+                  <input id="evDate" class="input" type="date" />
+                </div>
+                <div class="field">
+                  <label for="evVenue">Place</label>
+                  <input
+                    id="evVenue"
+                    class="input"
+                    maxlength="120"
+                    placeholder="e.g. The Glasshouse, Kuala Lumpur"
+                  />
+                </div>
+                <div class="field">
+                  <label for="evPhotographer">Photographer or studio</label>
+                  <input
+                    id="evPhotographer"
+                    class="input"
+                    maxlength="80"
+                    placeholder="e.g. Studio Lumen"
+                  />
+                  <p class="hint">Shown as "Photographs by …".</p>
+                </div>
+                <div class="field">
+                  <label for="evContact"
+                    >Contact for guests
+                    <span class="muted">(optional)</span></label
+                  >
+                  <input
+                    id="evContact"
+                    class="input"
+                    maxlength="120"
+                    placeholder="Email or phone number"
+                  />
+                  <p class="hint">
+                    Shown at the bottom of the guest page, for questions or to
+                    ask for a photo to be taken down.
+                  </p>
+                </div>
+              </div>
+              <p class="form-error" id="evError" role="alert" hidden></p>
+              <div class="form-foot">
+                <span class="muted" id="evStatus"></span>
+                <button type="submit" class="btn btn--primary" id="evSave">
+                  Save changes
+                </button>
+              </div>
+            </form>
+            <div class="panel cover-set" id="coverPanel"></div>
+            <div class="panel" id="matchPanel"></div>
+            <div class="panel" id="accountPanel"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    {% include '_viewer.html' %}
+
+    <dialog id="confirm" class="sheet" aria-labelledby="confirmTitle">
+      <div class="sheet__head"><h2 id="confirmTitle"></h2></div>
+      <p class="muted-block" id="confirmBody"></p>
+      <div class="sheet__foot">
+        <button type="button" class="btn btn--quiet" data-answer="no">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn--danger"
+          data-answer="yes"
+          id="confirmYes"
+        ></button>
+      </div>
+    </dialog>
+
+    <dialog
+      id="coverPicker"
+      class="sheet sheet--wide"
+      aria-labelledby="pickerTitle"
+    >
+      <div class="sheet__head">
+        <div>
+          <h2 id="pickerTitle">Choose a cover photo</h2>
+          <p class="muted-block">
+            Guests see it first, so pick one you're happy for everyone to see:
+            the venue, the couple, a detail.
+          </p>
+        </div>
+        <button type="button" class="iconbtn" data-close aria-label="Close">
+          <svg class="ic"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="picker" id="pickerGrid"></div>
+      <div class="loadmore" id="pickerMore"></div>
+      <div class="sheet__foot">
+        <button type="button" class="btn btn--quiet" data-close>Cancel</button>
+        <button type="button" class="btn btn--primary" id="pickerUse" disabled>
+          Use as cover
+        </button>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="print-card" id="printCard" aria-hidden="true"></div>
+
+    <script src="/static/viewer.js"></script>
+    <script src="/static/admin.js"></script>
+  </body>
+</html>
