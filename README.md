@@ -1,56 +1,78 @@
 # Event Face Matcher
 
-活动照片人脸搜寻：摄影师批次上传活动照片，来宾上传一张自拍，系统回传所有包含他的照片。
+Find yourself in event photos with one selfie. The photographer uploads the event photos in bulk; a guest takes a selfie and gets back every photo they appear in.
 
-这是**照片搜寻工具**，不是身分资料库 —— 它不知道任何人的名字，只比对脸的数字特征。
+This is a **photo-finding tool, not an identity database**. It never knows anyone's name; it only compares numeric face features.
 
----
-
-## 现在跑的是什么
-
-| 部位 | 用什么                                                 | 说明                           |
-| ---- | ------------------------------------------------------ | ------------------------------ |
-| 找脸 | **SCRFD-10GF**（`det_10g.onnx`）                       | InsightFace buffalo_l 的侦测器 |
-| 认脸 | **ArcFace ResNet50 @ WebFace600K**（`w600k_r50.onnx`） | 512 维特征向量                 |
-| 比对 | NumPy 内积（余弦相似度）                               | 向量已正规化，直接内积         |
-| 资料 | SQLite（WAL）                                          | 照片纪录 + 每张脸的特征        |
-| 网站 | FastAPI + 原生 JS                                      | 没有前端框架                   |
-
-> 起始版本用的是另一组较轻量的模型（128 维）。2026-09-17 换成上面这组，因为实测它在侦测与辨识两端都是严格的超集合。相关数据在 `D:\facebench\`。
-
-> **⚠️ 授权：buffalo_l 模型仅限非商业研究用途。** 自用、测试、不收费的活动没问题；
-> 要收费或营利就必须另外向 InsightFace 取得商业授权，或换回可商用的模型。
-> 详见 `THIRD_PARTY_LICENSES.md`。
+> **⚠️ Licence: the buffalo_l face models are for non-commercial research use only.**
+> Personal use, testing and unpaid events are fine. If you charge money or run it for profit,
+> you need a commercial licence from InsightFace or a commercially licensed model.
+> See [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 ---
 
-## 快速开始
+## Screenshots
 
-### 第一次安装
+**Guest page:** the event cover, and the notice guests see while the photographer has search paused.
+
+![Guest page](docs/screenshots/home%20page.png)
+
+**Admin Overview:** latest photos, library / guests / network status, and upload history.
+
+![Admin overview](docs/screenshots/overview%20page.png)
+
+**Admin Photos:** the searchable library, with file-name search and multi-select.
+
+![Admin photos](docs/screenshots/photos%20page.png)
+
+_Photos in the admin screenshots are blurred because they are third-party test images._
+
+---
+
+## What it runs on
+
+| Part        | What                                                  | Notes                                   |
+| ----------- | ----------------------------------------------------- | --------------------------------------- |
+| Detection   | **SCRFD-10GF** (`det_10g.onnx`)                       | The detector from InsightFace buffalo_l |
+| Recognition | **ArcFace ResNet50 @ WebFace600K** (`w600k_r50.onnx`) | 512-dimensional feature vector          |
+| Matching    | NumPy dot product (cosine similarity)                 | Vectors are normalised                  |
+| Storage     | SQLite (WAL)                                          | Photo records + features per face       |
+| Web         | FastAPI + plain JavaScript                            | No front-end framework                  |
+
+An earlier version used a lighter model pair (OpenCV YuNet + SFace, 128-d). In our tests buffalo_l found and recognised strictly more faces, so it replaced them, at the cost of the licence restriction above.
+
+---
+
+## Quick start (Windows)
+
+### First install
 
 ```powershell
-cd "D:\Event Face Matcher"
+git clone https://github.com/AllenFoong/event-face-matcher.git
+cd event-face-matcher
 py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
-notepad .env          # 至少要设 ADMIN_API_KEY 与 SITE_PASSWORD
+notepad .env          # set at least ADMIN_API_KEY and SITE_PASSWORD
 .venv\Scripts\python.exe scripts\download_models.py
 ```
 
-模型档要放在 `models\buffalo_l\`：`det_10g.onnx`、`w600k_r50.onnx`（以及 insightface 会检查的其余档案）。
+The models go in `models\buffalo_l\`: `det_10g.onnx`, `w600k_r50.onnx` (plus the other files insightface checks for).
 
-### 平常启动
+### Everyday start
 
-双击专案根目录的：
+Double-click one of these in the project folder:
 
-| 档案              | 作用                                             |
-| ----------------- | ------------------------------------------------ |
-| `启动.bat`        | 对外模式：开 Cloudflare 通道，手机在外面也连得到 |
-| `启动-仅区网.bat` | 只开区网：照片不离开这台电脑                     |
+| File              | Mode                                                                             |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `启动.bat`        | **Public**: opens a Cloudflare tunnel so phones on mobile data can connect       |
+| `启动-仅区网.bat` | **LAN only**: photos never leave this computer; guests must be on the same Wi-Fi |
 
-启动后画面会印出区网网址、对外网址、帐号密码，以及一个 **QR code**（内含免打字的钥匙，来宾扫了直接进）。关掉视窗 = 伺服器与通道一起关闭。
+(The file names are Chinese for "Start" and "Start – LAN only".)
 
-也可以手动跑：
+The window prints the LAN address, the public address, the login, and a **QR code** that carries a key so guests can scan and get straight in. Closing the window stops the server and the tunnel together.
+
+Or run it by hand:
 
 ```powershell
 .venv\Scripts\python.exe scripts\serve.py --no-tunnel --port 8000
@@ -58,122 +80,119 @@ notepad .env          # 至少要设 ADMIN_API_KEY 与 SITE_PASSWORD
 
 ---
 
-## 两个页面
+## The two pages
 
-| 网址     | 给谁   | 要什么                                 |
-| -------- | ------ | -------------------------------------- |
-| `/`      | 来宾   | 站台密码（或 QR 里的钥匙）＋ 勾选同意  |
-| `/admin` | 摄影师 | 站台密码 ＋ 登入页输入 `ADMIN_API_KEY` |
+| URL      | For          | Needs                                                    |
+| -------- | ------------ | -------------------------------------------------------- |
+| `/`      | Guests       | Site password (or the key in the QR code) + consent tick |
+| `/admin` | Photographer | Site password + `ADMIN_API_KEY` on the sign-in screen    |
 
-介面是英文的（2026-09-24 改版）。
+**Guest page `/`** (phone-first): the cover photo shown like a white-bordered print, with the event name beside it. Tick consent → take a selfie → results in a masonry grid → tap to view full screen (swipe, pinch to zoom) → download the original, or "Download all" as one zip. When the photographer pauses search, guests see "Photos are on their way".
 
-**来宾页 `/`**（以手机为主）：封面照片像一张白边相片、下面是活动名称；勾同意 → 拍自拍 → 瀑布流结果 → 点开全萤幕看（左右滑、两指放大）→ 下载原图，或「全部下载」成一个 zip。摄影师在管理页按了「暂停」时，来宾看到的是「Photos are on their way」。
+**Admin page `/admin`** (sidebar navigation):
 
-**管理页 `/admin`**（左边导览列）：
+| Section        | What it does                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overview       | Pre-opening checklist, latest photos, library / guests / network status cards, upload history                                              |
+| Upload         | Drag and drop. Large batches are sent in ~20 MB chunks so the public tunnel does not time out; one progress bar covers upload and indexing |
+| Photos         | Library (even rows, no cropping), search by file name, multi-select delete, full-size view, set as cover                                   |
+| Not searchable | Photos that were not indexed and **why** (no face / face too small / too blurry / unreadable); download or delete                          |
+| Guest access   | Guest QR code (copy link, download PNG, **print a table card**), pause guest search, entry method, network mode, search counts             |
+| Settings       | Event name, date, place, photographer, contact, cover photo; match threshold (read-only, set in `.env`)                                    |
 
-| 区块           | 做什么                                                                                        |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| Overview       | 开放前检查清单、最新照片、相簿／来宾／网路三张状态卡、上传纪录                                |
-| Upload         | 拖放上传。一大批会自动切成每包约 20 MB 分批送，走对外网址也不会 524；上传与建索引同一条进度条 |
-| Photos         | 相簿（等高排列、不裁切）、依档名搜寻、多选删除、点开看大图、设为封面                          |
-| Not searchable | 没进索引的照片与**原因**（没有脸／脸太小／太模糊／打不开），可下载、删除                      |
-| Guest access   | 来宾 QR code（复制连结、下载 PNG、**列印桌卡**）、开关来宾搜寻、进场方式、网路模式、搜寻次数  |
-| Settings       | 活动名称、日期、地点、摄影师、联络方式、封面照片；比对门槛（唯读，改 `.env`）                 |
-
-活动资料与封面存在资料库（`event_settings` 表），在 Settings 改完来宾重新整理就看到，不必重开伺服器。
+Event details and the cover are stored in the database (`event_settings` table). Changes show up for guests on refresh, with no server restart.
 
 ---
 
-## 重要设定（`.env`）
+## Key settings (`.env`)
 
-| 设定                          | 目前值   | 为什么是这个值                                                                                                |
-| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
-| `MATCH_THRESHOLD`             | **0.40** | 2026-09-22 在 191 张相簿实测：0.36 找回率 100% 但有 2 张认错人；0.40 零认错、找回率 92%。宁可少给，不要给错。 |
-| `MIN_FACE_SIZE`               | **24**   | 低於此像素的脸不进索引。实测 14～19 px 的小脸互比会出现 0.476 的跨人误配。                                    |
-| `DETECTION_SCORE_THRESHOLD`   | 0.50     | 侦测信心门槛                                                                                                  |
-| `DET_SIZE`                    | 640      | 实测比 320 多找到约 40% 的脸                                                                                  |
-| `ENGINE_THREADS`              | **4**    | 每份引擎用几个 CPU 执行绪。16 核全开反而最慢（搜寻 0.79s → 4 绪 0.26s）。                                     |
-| `ENGINE_POOL_SIZE`            | **3**    | 最多几个人可以同时算。引擎是用到才开，平常只占一份的记忆体。                                                  |
-| `SEARCH_RATE_PER_MIN`         | 20       | 每个 IP 每分钟搜寻上限                                                                                        |
-| `SITE_USER` / `SITE_PASSWORD` | —        | 整站密码。**留空 = 整站不上锁**，只有区网模式才可接受。                                                       |
-| `SITE_ACCESS_TOKEN`           | —        | QR code 里带的钥匙，来宾扫了免打字。留空 = 关掉此功能。                                                       |
-| `ADMIN_API_KEY`               | —        | 上传与删除的权限                                                                                              |
-
----
-
-## 实测数字（2026-09-22，16 核 CPU）
-
-相簿 191 张照片 / 667 张脸。
-
-| 项目          | 数字                                  |
-| ------------- | ------------------------------------- |
-| 建索引        | 0.81 秒/张（多人合照约 3.6 张脸/张）  |
-| 搜寻一次      | 0.27 秒                               |
-| 15 人同时搜寻 | 全部完成 6.7 秒，最慢的人等 6.6 秒    |
-| 找回率        | 92%（门槛 0.40）                      |
-| 误配          | 0（180 张陌生人照片一张都没漏出）     |
-| 记忆体        | 一份引擎 435 MB；三份同时运作 1058 MB |
-
-准确度的样本只有 3 个真人、16 张已标注的脸 —— **方向可信，精确数字不可信**。
+| Setting                       | Value    | Why                                                                                                                                                                       |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MATCH_THRESHOLD`             | **0.40** | Tested on a 191-photo library: 0.36 found 100% but matched 2 wrong photos; 0.40 had zero wrong matches and 92% recall. Better to miss a photo than show the wrong person. |
+| `MIN_FACE_SIZE`               | **24**   | Faces smaller than this (pixels) are not indexed. 14–19 px faces produced a 0.476 cross-person false match in testing.                                                    |
+| `DETECTION_SCORE_THRESHOLD`   | 0.50     | Detector confidence cut-off                                                                                                                                               |
+| `DET_SIZE`                    | 640      | Finds about 40% more faces than 320                                                                                                                                       |
+| `ENGINE_THREADS`              | **4**    | CPU threads per engine. Using all 16 cores was the slowest (search 0.79 s → 0.26 s with 4 threads).                                                                       |
+| `ENGINE_POOL_SIZE`            | **3**    | How many searches can run at once. Engines start on demand; idle memory is one engine.                                                                                    |
+| `SEARCH_RATE_PER_MIN`         | 20       | Searches per IP per minute                                                                                                                                                |
+| `SITE_USER` / `SITE_PASSWORD` | —        | Site-wide password. **Blank = no lock**; only acceptable in LAN-only mode.                                                                                                |
+| `SITE_ACCESS_TOKEN`           | —        | Key carried in the QR code so guests don't have to type. Blank = feature off.                                                                                             |
+| `ADMIN_API_KEY`               | —        | Permission to upload and delete                                                                                                                                           |
 
 ---
 
-## 已知限制
+## Measured performance (16-core CPU)
 
-1. **大量上传走公开网址会比较慢。** 以前一次送整批，Cloudflare 通道 100 秒就逾时（524）；现在管理页会切成每包约 20 MB 分批送，不会再逾时，但家用网路的上传速度仍然是瓶颈。能用 `http://127.0.0.1:8000/admin` 或同一个 WiFi 就用。
-2. **对外模式下照片会经过 Cloudflare 中转**，等於离开这台电脑。要资料不外流就用 `启动-仅区网.bat`。
-3. **免费通道的网址每次重开都会变**。固定网址需要 Cloudflare 帐号与自有网域。
-4. **来宾打得开 `/admin` 页面**（但没有 `ADMIN_API_KEY` 做不了任何事）。
-5. **全场共用一把 QR 钥匙**，被转传就挡不住。
-6. **没有备份机制**，所有资料只在这台电脑的 `data\` 里。
-7. **压缩过的照片会被拒收**。转传过的小图脸只剩十几像素，认不准。请上传原图。
+Library of 191 photos / 667 faces.
+
+| Item                | Result                                           |
+| ------------------- | ------------------------------------------------ |
+| Indexing            | 0.81 s per photo (group photos, ~3.6 faces each) |
+| One search          | 0.27 s                                           |
+| 15 searches at once | All done in 6.7 s; slowest waited 6.6 s          |
+| Recall              | 92% (threshold 0.40)                             |
+| False matches       | 0 (none of 180 stranger photos leaked through)   |
+| Memory              | 435 MB with one engine; 1058 MB with three       |
+
+The accuracy sample is only 3 real people with 16 labelled faces, so **the direction is reliable, the exact numbers are not**.
 
 ---
 
-## 目录结构
+## Known limitations
+
+1. **Large uploads over the public link are slow.** Chunked uploads avoid the Cloudflare 100-second timeout (524), but home upload speed is still the bottleneck. Use `http://127.0.0.1:8000/admin` or the same Wi-Fi when you can.
+2. **In public mode, photos pass through Cloudflare**, so they leave this computer. Use LAN-only mode if they must not.
+3. **The free tunnel URL changes on every restart.** A fixed URL needs a Cloudflare account and your own domain.
+4. **Guests can open `/admin`** (but cannot do anything without `ADMIN_API_KEY`).
+5. **One QR key for everyone.** If it is forwarded, it cannot be revoked per person.
+6. **No backups.** All data lives only in `data\` on this computer.
+7. **Compressed photos get rejected.** Images forwarded through chat apps shrink faces to a dozen pixels, too small to match reliably. Upload originals.
+
+---
+
+## Project layout
 
 ```
 app/
-  main.py          网站路由、整站密码、限流、上传/搜寻/管理端点
-  config.py        所有设定（.env 会覆写这里的预设值）
-  face_engine.py   模型载入、侦测、特征抽取、引擎池
-  photos.py        照片落地 + 建索引（上传端点与背景工人共用）
-  jobs.py          背景建索引工人与进度纪录
-  search_index.py  记忆体里的向量索引（支援增量新增）
-  db.py            SQLite 结构与查询
-  static/          base.css（共用配色与元件）、guest.css + app.js（来宾页）、
-                   admin.css + admin.js（管理页）、viewer.js（两边共用的全萤幕看照片）
-  templates/       index.html（来宾）、admin.html（管理）、_icons.html（图示）、_viewer.html
-  _history/        各阶段改动前的旧版，纯参考
+  main.py          Routes, site password, rate limit, upload/search/admin endpoints
+  config.py        All settings (.env overrides the defaults here)
+  face_engine.py   Model loading, detection, feature extraction, engine pool
+  photos.py        Saving photos + indexing (shared by the upload endpoint and the worker)
+  jobs.py          Background indexing worker and progress records
+  search_index.py  In-memory vector index (supports incremental adds)
+  db.py            SQLite schema and queries
+  static/          base.css (shared colours and components), guest.css + app.js (guest page),
+                   admin.css + admin.js (admin page), viewer.js (full-screen viewer, shared)
+  templates/       index.html (guest), admin.html (admin), _icons.html, _viewer.html
 scripts/
-  serve.py         一键启动：伺服器 + 通道 + QR code
-  reindex.py       换模型或改门槛後，用 data/photos 重建整个索引
+  serve.py         One-click start: server + tunnel + QR code
+  reindex.py       Rebuild the whole index from data/photos after changing models or settings
   download_models.py
-data/               照片、缩图（thumbnails/）、看大图用的中尺寸（display/，长边 2048）、资料库
-                    （不进版控，不含在程式备份里）
-models/buffalo_l/   模型档（约 220 MB，用 download_models.py 取得）
+docs/screenshots/  README images
+data/              Photos, thumbnails/, display/ (2048 px viewing copies), database (not in git)
+models/buffalo_l/  Model files (~190 MB, fetched by download_models.py, not in git)
 ```
 
 ---
 
-## 换设定之後
+## After changing settings
 
-改 `MATCH_THRESHOLD` 之类的比对设定，**重开伺服器就生效**。
+Matching settings such as `MATCH_THRESHOLD` take effect **after a server restart**.
 
-改 `MIN_FACE_SIZE`、`DET_SIZE` 或换模型，**必须重建索引**，否则新旧标准混在一起：
+Changing `MIN_FACE_SIZE`, `DET_SIZE` or the model **requires a reindex**, otherwise old and new faces are measured differently:
 
 ```powershell
 .venv\Scripts\python.exe scripts\reindex.py
 ```
 
-重建会先自动备份资料库，再用 `data\photos` 里的档案整个重跑，然后**要重开伺服器**（索引是载在记忆体里的）。
+It backs up the database first, re-runs every file in `data\photos`, and then **the server must be restarted** (the index lives in memory).
 
 ---
 
-## 法遵提醒（沿用起始版本的说明，仍然适用）
+## Compliance notes
 
-来宾页上那个同意勾选，只涵盖**该名来宾自己**的脸部搜寻。它**不代表**相簿里其他入镜者同意被生物特征处理 —— 那要靠你的活动与摄影流程另外处理。
+The consent tick on the guest page covers only **that guest's own** face search. It does **not** mean everyone else in the album has agreed to biometric processing; that has to be handled by your event and photography process.
 
-正式商用前仍需补上：多活动隔离、真正的管理者帐号系统、HTTPS、签名有效期的照片网址、物件储存、加密备份、保留与删除政策、稽核纪录、以及法务审阅过的同意与隐私流程。
+Before any commercial use you would still need: separation between events, a real admin account system, HTTPS, expiring signed photo URLs, object storage, encrypted backups, retention and deletion policies, audit logs, and a consent and privacy flow reviewed by a lawyer.
 
-第三方元件授权见 `THIRD_PARTY_LICENSES.md` —— 其中**模型的非商业限制**是目前最需要注意的一条。
+Third-party licences are in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md). The **non-commercial restriction on the models** is the one that matters most right now.
